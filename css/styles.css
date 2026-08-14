@@ -1,0 +1,732 @@
+/* ===========================================================
+   Design tokens
+   =========================================================== */
+:root {
+  --color-bg: #F3F4F7;
+  --color-surface: #FFFFFF;
+  --color-ink: #1B2333;
+  --color-ink-soft: #5B6472;
+  --color-border: #E4E7EC;
+
+  --color-primary: #2C3E6B;
+  --color-primary-light: #3C5490;
+  --color-primary-dark: #1A2540;
+  --color-accent: #B08D57;
+  --color-accent-light: #C7A46E;
+
+  --color-warning: #E8A33D;
+  --color-warning-bg: #FFF6E5;
+  --color-danger: #C1443A;
+  --color-danger-bg: #FBEBEA;
+  --color-success: #3C7A5A;
+  --color-success-bg: #E9F4EE;
+
+  --font-display: 'Manrope', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --radius-sm: 7px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --shadow-xs: 0 1px 2px rgba(20, 24, 40, 0.05);
+  --shadow-sm: 0 2px 8px rgba(20, 24, 40, 0.08);
+  --shadow-border: 0px 0px 1px 2px rgba(20, 24, 40, 0.07);
+  --shadow-md: 0 10px 28px rgba(20, 24, 40, 0.16);
+  --shadow-lg: 0 20px 48px rgba(20, 24, 40, 0.22);
+
+  --ease: cubic-bezier(0.22, 0.8, 0.32, 1);
+  --duration-super-fast: 70ms;
+  --duration-fast: 130ms;
+  --duration-base: 220ms;
+}
+
+/* ===========================================================
+   Reset / base
+   =========================================================== */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+
+h1, h2 { font-family: var(--font-display); margin: 0; }
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-top: 50px; /* room for the fixed header */
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Custom scrollbars — subtle, not intrusive */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #C7CBD4 transparent;
+}
+*::-webkit-scrollbar { height: 8px; width: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: #C7CBD4;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover { background: #B0B5C0; }
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ===========================================================
+   Buttons
+   =========================================================== */
+.btn {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease),
+              border-color var(--duration-fast) var(--ease),
+              box-shadow var(--duration-fast) var(--ease),
+              transform var(--duration-fast) var(--ease);
+}
+.btn:active { transform: translateY(1px) scale(0.98); }
+
+.btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: var(--shadow-xs);
+}
+.btn--primary:hover { background: var(--color-primary-dark); box-shadow: var(--shadow-sm); }
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-ink);
+}
+.btn--ghost:hover { background: var(--color-bg); border-color: #D2D6DE; }
+
+.btn--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.btn--danger:hover { background: #f6d9d6; }
+
+.btn--icon {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink);
+}
+.btn--icon:hover { background: var(--color-bg); transform: translateY(-1px); }
+
+/* ===========================================================
+   App header
+   =========================================================== */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark));
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(20, 24, 40, 0.18);
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 20;
+}
+.app-header h1 {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.app-header .btn--primary {
+  background: var(--color-accent);
+}
+.app-header .btn--primary:hover {
+  background: var(--color-accent-light);
+}
+
+/* ===========================================================
+   Week navigator
+   =========================================================== */
+.week-navigator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.week-navigator__label {
+  border: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  min-width: 220px;
+}
+.week-navigator__label:active {
+  outline: none;
+}
+.week-navigator .btn--ghost {
+  margin-left: auto;
+}
+
+/* ===========================================================
+   Schedule view / grid
+   =========================================================== */
+.schedule-container {
+  flex: 1;
+  display: flex;
+}
+
+.schedule-view {
+  flex: 1;
+  display: flex;
+  overflow-x: auto;
+  padding: 22px 24px 40px;
+}
+
+.schedule-view__empty {
+  padding: 40px;
+  color: var(--color-ink-soft);
+  font-size: 15px;
+}
+
+.day-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.day-column {
+  flex: 0 0 220px;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--duration-base) var(--ease), border-color var(--duration-base) var(--ease);
+  /* animation: fadeSlideUp var(--duration-base) var(--ease) both; */
+}
+.day-column--today {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-xs);
+}
+.day-column--exception {
+  border-color: var(--color-warning);
+}
+.day-column--drop-target {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary), var(--shadow-md);
+}
+
+.day-column__header {
+  height: 44px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.day-column__heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+}
+.day-column__badge {
+  display: inline-block;
+  width: fit-content;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a6412;
+  background: var(--color-warning-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.day-column__track {
+  position: relative;
+  background: var(--color-danger-bg);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--color-border) 0,
+    var(--color-border) 1px,
+    transparent 1px,
+    transparent var(--px-per-quarter-hour)
+  );
+  cursor: pointer;
+}
+
+/* Translucent so the 15-minute gridlines stay visible underneath. */
+.availability-window {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--color-border) 0,
+    var(--color-border) 1px,
+    transparent 1px,
+    transparent var(--px-per-quarter-hour)
+  );
+  pointer-events: none;
+  transition: background-color var(--duration-base) var(--ease);
+}
+
+/* Hour marks, right-aligned, above every appointment but click-through. */
+.day-column__hour-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+.day-column__hour-label {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0 3px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* ===========================================================
+   Appointment blocks
+   Colors come from the appointment type's `color` field (set inline via
+   JS), not CSS — that field is admin-editable in appointment_types.
+   =========================================================== */
+.appointment-block {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--color-ink-soft);
+  padding: 4px 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  cursor: grab;
+  box-shadow: var(--shadow-xs);
+  touch-action: none;
+  user-select: none;
+  transition: box-shadow var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
+  /* animation: fadeSlideUp var(--duration-base) var(--ease) both; */
+}
+.appointment-block:hover {
+  box-shadow: var(--shadow-border);
+  transform: translateY(-1px);
+}
+.appointment-block--dragging {
+  cursor: grabbing;
+  box-shadow: var(--shadow-md) !important;
+  z-index: 10;
+}
+.appointment-block--compact {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 8px;
+}
+.appointment-block--compact .appointment-block__type { display: none; }
+
+/* Stacked layout for the Unscheduled column: no absolute positioning. */
+.appointment-block--static {
+  position: relative;
+  left: auto;
+  right: auto;
+  height: auto !important;
+  top: auto !important;
+}
+
+.appointment-block--source-hidden {
+  opacity: 0.25 !important;
+  pointer-events: none;
+}
+
+.appointment-block--ghost {
+  z-index: 999;
+  pointer-events: none;
+  box-shadow: var(--shadow-lg) !important;
+  transform: rotate(1.5deg) scale(1.03);
+  transition: top var(--duration-super-fast) var(--ease), left var(--duration-super-fast) var(--ease), transform var(--duration-super-fast) var(--ease);
+}
+
+.appointment-block__time {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-ink-soft);
+}
+.appointment-block__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 16px; /* room for the directory-link icon */
+}
+.appointment-block__type {
+  font-size: 10.5px;
+  color: var(--color-ink-soft);
+}
+.appointment-block__warning-badge {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(20, 24, 40, 0.25);
+}
+.appointment-block__directory-link {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 4px;
+  opacity: 0.75;
+  transition: opacity var(--duration-fast) var(--ease), background-color var(--duration-fast) var(--ease);
+}
+.appointment-block__directory-link:hover {
+  opacity: 1;
+  background: rgba(20, 24, 40, 0.06);
+}
+/* If both the warning badge and the directory-link icon are present,
+   give the icon room below the badge instead of overlapping it. */
+.appointment-block__warning-badge ~ .appointment-block__directory-link {
+  top: 20px;
+}
+
+/* ===========================================================
+   Unscheduled column (desktop: sticky-right sidebar)
+   =========================================================== */
+.day-column--unscheduled {
+  flex: 0 0 200px;
+  position: sticky;
+  right: 0;
+  align-self: flex-start;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.unscheduled-column__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-ink);
+  cursor: default;
+  text-align: left;
+}
+.unscheduled-column__title { flex: 1; }
+.unscheduled-column__count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.unscheduled-column__chevron {
+  display: none; /* only meaningful on mobile, where the header becomes a real toggle */
+}
+
+.unscheduled-column__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.unscheduled-column__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  min-height: 40px;
+}
+.unscheduled-column__list .appointment-block {
+  padding: 6px 26px 6px 8px;
+}
+.unscheduled-column__empty {
+  font-size: 12.5px;
+  color: var(--color-ink-soft);
+  text-align: center;
+  padding: 12px 4px;
+}
+.unscheduled-column__add {
+  margin: 0 10px 10px;
+}
+
+/* ===========================================================
+   Modals (password prompt + appointment form)
+   =========================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 24, 40, 0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+  animation: overlayIn var(--duration-base) var(--ease) both;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-lg);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalIn var(--duration-base) var(--ease) both;
+}
+
+.modal h2 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+.modal p { color: var(--color-ink-soft); font-size: 13.5px; margin: 0 0 16px; }
+
+.password-prompt__form {
+  display: flex;
+  gap: 8px;
+}
+.password-prompt__form input {
+  flex: 1;
+}
+
+.appointment-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.appointment-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+.appointment-form .label-optional {
+  font-weight: 400;
+  font-size: 11.5px;
+}
+.appointment-form input,
+.appointment-form select,
+.appointment-form textarea {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-ink);
+  padding: 9px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
+}
+.appointment-form input:focus,
+.appointment-form select:focus,
+.appointment-form textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(44, 62, 107, 0.12);
+}
+.appointment-form textarea { resize: vertical; }
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+.form-row label { flex: 1; }
+
+.form-error {
+  color: var(--color-danger) !important;
+  font-size: 13px !important;
+  margin: 0 !important;
+}
+
+.appointment-form__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.appointment-form__actions > div {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===========================================================
+   Toasts
+   =========================================================== */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+}
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  transition: opacity var(--duration-base) var(--ease), transform var(--duration-base) var(--ease);
+  max-width: 320px;
+}
+.toast--visible { opacity: 1; transform: translateY(0) scale(1); }
+.toast--info { background: var(--color-surface); color: var(--color-ink); }
+.toast--success { background: var(--color-success-bg); color: var(--color-success); }
+.toast--error { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* ===========================================================
+   Mobile
+   =========================================================== */
+@media (max-width: 640px) {
+  #app { padding-top: 44px; }
+  .app-header { padding: 12px 16px; }
+  .app-header h1 { font-size: 17px; }
+  .week-navigator { padding: 10px 16px; }
+  .week-navigator__label { min-width: 0; font-size: 14px; }
+  .schedule-view {
+    padding: 14px 12px 32px;
+    /* room so the fixed Unscheduled bar never covers the last row of the calendar */
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+  .day-columns { gap: 7px; }
+  .day-column { flex: 0 0 55vw; }
+  .modal { padding: 18px; }
+  .form-row { flex-direction: column; gap: 14px; }
+
+  /* Unscheduled becomes a collapsible bottom sheet instead of a sidebar */
+  .day-column--unscheduled {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border: 1px solid var(--color-border);
+    border-bottom: none;
+    box-shadow: 0 -8px 28px rgba(20, 24, 40, 0.20);
+    z-index: 60;
+    max-height: 60vh;
+  }
+
+  .unscheduled-column__header {
+    height: auto;
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+    cursor: pointer;
+    border-bottom: none;
+  }
+  .day-column--unscheduled:not(.unscheduled-column--collapsed) {
+    box-shadow: 0 19px 69px 8px #000000b3 !important;
+  }
+  .unscheduled-column--collapsed .unscheduled-column__header {
+    padding-bottom: 14px;
+  }
+  .unscheduled-column__title { font-size: 15px; }
+  .unscheduled-column__chevron {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--color-ink-soft);
+    transition: transform var(--duration-base) var(--ease);
+  }
+  .unscheduled-column--collapsed .unscheduled-column__chevron {
+    transform: rotate(180deg);
+  }
+
+  .unscheduled-column__body {
+    overflow: hidden;
+    max-height: 46vh;
+    overflow-y: auto;
+    opacity: 1;
+    transition: max-height var(--duration-base) var(--ease), opacity var(--duration-fast) var(--ease);
+    border-top: 1px solid var(--color-border);
+  }
+  .unscheduled-column--collapsed .unscheduled-column__body {
+    max-height: 0;
+    opacity: 0;
+    border-top-color: transparent;
+  }
+}
