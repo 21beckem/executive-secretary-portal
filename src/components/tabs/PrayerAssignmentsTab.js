@@ -2,73 +2,7 @@ import { Tab } from './Tab.js';
 import { ApiError } from '../../api/ApiError.js';
 import { escapeHtml, getDayWithOrdinal } from '../../utils/helpers.js';
 import { PrayerAssignmentRepository } from '../../repositories/PrayerAssignmentRepository.js';
-
-// Small, self-contained confirmation modal for deleting a row. Not exported —
-// only used internally by PrayerAssignmentsTab. Mounted to document.body per
-// the app's modal convention (safe from ancestor transform/filter, sits above
-// the tab footer automatically).
-class PrayerDeleteConfirmModal {
-    #overlay;
-    #label;
-    #onConfirm;
-    #pendingId = null;
-    #keydownHandler;
-
-    constructor({ onConfirm }) {
-        this.#onConfirm = onConfirm;
-
-        this.#overlay = document.createElement('div');
-        this.#overlay.className = 'modal-overlay prayer-assignments-tab__delete-overlay';
-        this.#overlay.style.display = 'none';
-        this.#overlay.innerHTML = `
-      <div class="modal prayer-assignments-tab__delete-modal">
-        <h2>Delete record?</h2>
-        <p class="prayer-assignments-tab__delete-label"></p>
-        <div class="prayer-assignments-tab__delete-actions">
-          <button type="button" class="btn btn--ghost" data-action="cancel">Cancel</button>
-          <button type="button" class="btn btn--danger" data-action="confirm">Delete</button>
-        </div>
-      </div>
-    `;
-        this.#label = this.#overlay.querySelector('.prayer-assignments-tab__delete-label');
-
-        this.#overlay.addEventListener('click', (event) => {
-            if (event.target === this.#overlay) this.close();
-        });
-        this.#overlay.querySelector('[data-action="cancel"]').addEventListener('click', () => this.close());
-        this.#overlay.querySelector('[data-action="confirm"]').addEventListener('click', () => {
-            const id = this.#pendingId;
-            this.close();
-            if (id != null) this.#onConfirm(id);
-        });
-
-        this.#keydownHandler = (event) => {
-            if (event.key === 'Escape') this.close();
-        };
-    }
-
-    mount(container) {
-        container.appendChild(this.#overlay);
-    }
-
-    unmount() {
-        this.close();
-        this.#overlay.remove();
-    }
-
-    open(id, label) {
-        this.#pendingId = id;
-        this.#label.textContent = label;
-        this.#overlay.style.display = 'flex';
-        document.addEventListener('keydown', this.#keydownHandler);
-    }
-
-    close() {
-        this.#overlay.style.display = 'none';
-        this.#pendingId = null;
-        document.removeEventListener('keydown', this.#keydownHandler);
-    }
-}
+import { ConfirmDeleteModal } from '../ConfirmDeleteModal.js';
 
 export class PrayerAssignmentsTab extends Tab {
     #context;
@@ -85,9 +19,7 @@ export class PrayerAssignmentsTab extends Tab {
         super();
         this.#context = context;
         this.#repository = new PrayerAssignmentRepository(context.apiClient);
-        this.#deleteModal = new PrayerDeleteConfirmModal({
-            onConfirm: (id) => this.#handleDelete(id),
-        });
+        this.#deleteModal = new ConfirmDeleteModal();
         this.#buildDom();
     }
 
@@ -128,14 +60,6 @@ export class PrayerAssignmentsTab extends Tab {
 
     async init() {
         await this.#loadAssignments();
-    }
-
-    onShow() {
-        this.#deleteModal.mount(document.body);
-    }
-
-    onHide() {
-        this.#deleteModal.unmount();
     }
 
     // ---- data loading -------------------------------------------------
@@ -395,8 +319,9 @@ export class PrayerAssignmentsTab extends Tab {
         //     this.#patchAssignment(assignment.id, { closing_confirmed: closingConfirmed.checked });
         // });
 
-        deleteBtn.addEventListener('click', () => {
-            this.#deleteModal.open(assignment.id, this.#formatDeleteLabel(assignment));
+        deleteBtn.addEventListener('click', async () => {
+            if (await this.#deleteModal.open(this.#formatDeleteLabel(assignment)))
+                this.#handleDelete(assignment.id);
         });
 
         return tr;

@@ -61,6 +61,7 @@ export class TabManager {
             if (typeof entry.instance.init === 'function') {
                 await entry.instance.init();
             }
+            entry.instance.onShow?.();
         } else {
             this.#contentContainer.appendChild(entry.instance.element);
             entry.instance.onShow?.();

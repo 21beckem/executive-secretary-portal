@@ -7,6 +7,7 @@ import { ScheduleView } from '../ScheduleView.js';
 import { AppointmentForm } from '../AppointmentForm.js';
 import { ApiError } from '../../api/ApiError.js';
 import { Tab } from './Tab.js';
+import { ConfirmDeleteModal } from '../ConfirmDeleteModal.js';
 
 const PIXELS_PER_MINUTE = 2; // 96px/hour, 24px per 15-minute slot
 
@@ -16,6 +17,7 @@ export class AppointmentsTab extends Tab {
   #availabilityRepository;
   #authGate;
   #toast;
+  #deleteModal;
   
   #toolbar;
   #weekNavigator;
@@ -44,6 +46,7 @@ export class AppointmentsTab extends Tab {
     this.#currentWeekStart = DateUtils.getWeekStart(new Date());
     this.#dragDropController = new DragDropController({ pixelsPerMinute: PIXELS_PER_MINUTE });
     this.#dragCoordinator = new DragCoordinator({ dragDropController: this.#dragDropController });
+    this.#deleteModal = new ConfirmDeleteModal();
     this.#buildShell();
   }
 
@@ -87,6 +90,7 @@ export class AppointmentsTab extends Tab {
     this.#weekNavigator = new WeekNavigator({
       weekStart: this.#currentWeekStart,
       onChange: (direction) => this.#changeWeek(direction),
+      onSet: (weekStartDate) => this.#setWeek(weekStartDate),
     });
     this.#toolbar.appendChild(this.#weekNavigator.element);
 
@@ -101,6 +105,10 @@ export class AppointmentsTab extends Tab {
     this.#currentWeekStart =
       direction === 0 ? DateUtils.getWeekStart(new Date()) : DateUtils.addDays(this.#currentWeekStart, direction * 7);
     this.#weekNavigator.update(this.#currentWeekStart);
+    await this.#loadWeek();
+  }
+  async #setWeek(weekStartDate) {
+    this.#currentWeekStart = weekStartDate;
     await this.#loadWeek();
   }
 
@@ -184,6 +192,9 @@ export class AppointmentsTab extends Tab {
   }
 
   async #deleteAppointment(id) {
+    if (!(await this.#deleteModal.open('Are you sure you want to delete this appointment?')))
+        return;
+
     try {
       await this.#appointmentRepository.remove(id);
       this.#toast.show('Appointment deleted.', { type: 'success' });
