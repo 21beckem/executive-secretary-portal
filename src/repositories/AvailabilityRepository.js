@@ -8,7 +8,7 @@ export class AvailabilityRepository {
   }
 
   async getAll() {
-    const raw = await this.#apiClient.get('/availability');
+    const raw = await this.#apiClient.get('/appointments/availability');
     return raw.map(AvailabilityWindow.fromObject);
   }
 }

@@ -8,7 +8,7 @@ export class AppointmentTypeRepository {
   }
 
   async getAll() {
-    const raw = await this.#apiClient.get('/appointment-types');
+    const raw = await this.#apiClient.get('/appointments/appointment-types');
     return raw.map(AppointmentType.fromObject);
   }
 }

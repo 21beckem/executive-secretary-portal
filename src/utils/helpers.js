@@ -29,6 +29,15 @@ export function colorToTintedWhite(hex, factor=0.65, alpha=0.75) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Given a date, returns something like: 15th, 2nd, 1st, 23rd, etc. */
+export function getDayWithOrdinal(date) {
+  const day = date.getUTCDate();
+  const suffix = ["th", "st", "nd", "rd"][
+    ((day % 100 - 20) % 10) && day % 10 <= 3 ? day % 10 : 0
+  ];
+  return `${day}<sup>${suffix}</sup>`;
+}
+
 /**
  * Walks up from `el` to find the nearest ancestor that actually scrolls on
  * the given axis (has overflow: auto/scroll AND content that overflows it),
