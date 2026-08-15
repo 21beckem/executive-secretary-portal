@@ -28,3 +28,23 @@ export function colorToTintedWhite(hex, factor=0.65, alpha=0.75) {
   b = Math.round(b + (255 - b) * t);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+/**
+ * Walks up from `el` to find the nearest ancestor that actually scrolls on
+ * the given axis (has overflow: auto/scroll AND content that overflows it),
+ * falling back to the page itself. Used to manually replicate native
+ * scrolling on elements where touch-action: none has disabled it.
+ */
+export function findScrollableAncestor(el, axis) {
+  let node = el.parentElement;
+  while (node && node !== document.body && node !== document.documentElement) {
+    const style = window.getComputedStyle(node);
+    const overflow = axis === 'y' ? style.overflowY : style.overflowX;
+    const isScrollableStyle = overflow === 'auto' || overflow === 'scroll';
+    const hasOverflowContent =
+      axis === 'y' ? node.scrollHeight > node.clientHeight : node.scrollWidth > node.clientWidth;
+    if (isScrollableStyle && hasOverflowContent) return node;
+    node = node.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}

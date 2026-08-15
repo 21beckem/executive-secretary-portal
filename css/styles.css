@@ -359,6 +359,11 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   box-shadow: var(--shadow-border);
   transform: translateY(-1px);
 }
+.appointment-block--pressing {
+  transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
+  transform: scale(0.97);
+  box-shadow: var(--shadow-sm);
+}
 .appointment-block--dragging {
   cursor: grabbing;
   box-shadow: var(--shadow-md) !important;

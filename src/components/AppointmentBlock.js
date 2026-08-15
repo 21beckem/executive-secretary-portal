@@ -1,19 +1,35 @@
 import { DateUtils } from '../utils/DateUtils.js';
-import { escapeHtml, colorToTintedWhite } from '../utils/helpers.js';
+import { escapeHtml, colorToTintedWhite, findScrollableAncestor } from '../utils/helpers.js';
 
-// Toggle whether the start time is shown on the block face. Off by default
-// since block color + position on the grid already conveys the time, and
-// compact 15-minute blocks have very little room.
+// Toggle whether the start time is shown on the block face.
 export const SHOW_START_TIME = true;
+
+const DRAG_THRESHOLD_PX = 4;        // mouse: distance before a drag is considered to have started
+const TOUCH_MOVE_TOLERANCE_PX = 8;  // touch: total movement allowed during the hold before it's treated as a scroll
+const LONG_PRESS_MS = 450;          // touch: how long you must hold before dragging begins
 
 /**
  * Renders one appointment as a card — either absolutely positioned on a
  * day's time grid ('timed' layout) or stacked in the Unscheduled column
- * ('static' layout). Uses Pointer Events so the same drag logic works on
- * desktop and mobile. A short tap (no meaningful movement) opens the edit
- * form; a drag beyond a small threshold hands off to the shared
- * DragCoordinator, which supports dropping onto any day column or the
- * Unscheduled column — not just the one this block started in.
+ * ('static' layout).
+ *
+ * Drag behavior differs by input type:
+ *  - Mouse (and pen): dragging begins as soon as the pointer moves past a
+ *    small threshold.
+ *  - Touch: this element has `touch-action: none` (see CSS), which fully
+ *    opts it out of the browser's own panning/zooming for any touch that
+ *    starts on it. That's necessary because touch-action can't be switched
+ *    dynamically mid-gesture in a way browsers honor — the browser decides
+ *    at the start of a touch whether it or JS owns the gesture, so a
+ *    "scroll normally, then hijack after a long-press" approach based on
+ *    touch-action alone is a race the browser wins (it fires `pointercancel`
+ *    and takes the gesture for native scrolling the moment real movement
+ *    happens). Instead, we own the whole gesture from the start and
+ *    manually replicate scrolling ourselves: until the long-press
+ *    completes, every pointer movement scrolls the nearest real scrollable
+ *    ancestor by the same delta the finger moved, so it still feels like
+ *    native scrolling. If the hold completes before the total movement
+ *    exceeds TOUCH_MOVE_TOLERANCE_PX, we commit to a drag instead.
  */
 export class AppointmentBlock {
   #appointment;
@@ -28,6 +44,7 @@ export class AppointmentBlock {
   #onMove;
   #onEdit;
   #element;
+  #scrollDirection = null; // 'x' | 'y' | null, set once a touch gesture is committed to scrolling
   #dragState = null;
 
   constructor({
@@ -137,39 +154,136 @@ export class AppointmentBlock {
   #handlePointerDown = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target.closest('.appointment-block__directory-link')) return; // let the icon's own click fire
-    e.preventDefault();
-    this.#element.setPointerCapture(e.pointerId);
+    const isTouch = e.pointerType === 'touch';
+
     const rect = this.#element.getBoundingClientRect();
     this.#dragState = {
+      pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
       pointerOffsetX: e.clientX - rect.left,
       pointerOffsetY: e.clientY - rect.top,
-      moved: false,
-      ghostStarted: false,
+      dragActive: false,
       pending: null,
+      longPressTimer: null,
+      scrollLocked: false, // touch: true once movement has committed this gesture to "scrolling", never dragging
+      vScroller: null,
+      hScroller: null,
     };
-    this.#element.addEventListener('pointermove', this.#handlePointerMove);
-    this.#element.addEventListener('pointerup', this.#handlePointerUp);
-    this.#element.addEventListener('pointercancel', this.#handlePointerUp);
+
+    if (isTouch) {
+      // touch-action: none means the browser won't scroll on our behalf —
+      // we replicate it manually until/unless the hold turns into a drag.
+      this.#dragState.vScroller = findScrollableAncestor(this.#element, 'y');
+      this.#dragState.hScroller = findScrollableAncestor(this.#element, 'x');
+      this.#element.classList.add('appointment-block--pressing');
+      document.addEventListener('pointermove', this.#handlePendingMove);
+      document.addEventListener('pointerup', this.#handlePendingEnd);
+      document.addEventListener('pointercancel', this.#handlePendingEnd);
+      this.#dragState.longPressTimer = setTimeout(() => this.#activateDrag(), LONG_PRESS_MS);
+    } else {
+      // Mouse / pen: no ambiguity with scrolling, so drag can arm immediately.
+      e.preventDefault();
+      this.#element.setPointerCapture(e.pointerId);
+      this.#element.addEventListener('pointermove', this.#handleActiveMove);
+      this.#element.addEventListener('pointerup', this.#handleActiveEnd);
+      this.#element.addEventListener('pointercancel', this.#handleActiveEnd);
+    }
   };
 
-  #handlePointerMove = (e) => {
+  // --- Touch pre-drag ("holding") phase — document-level listeners so we
+  // keep seeing the pointer even if the manual scroll below moves this
+  // element out from under the finger. ---
+
+  #handlePendingMove = (e) => {
+    const state = this.#dragState;
+    if (!state || e.pointerId !== state.pointerId) return;
+
+    const deltaX = e.clientX - state.lastX;
+    const deltaY = e.clientY - state.lastY;
+    state.lastX = e.clientX;
+    state.lastY = e.clientY;
+    if (this.#scrollDirection === null && Math.abs(deltaY) > 2) this.#scrollDirection = 'y';
+    if (this.#scrollDirection === null && Math.abs(deltaX) > 2 && state.hScroller !== state.vScroller) this.#scrollDirection = 'x';
+
+
+    // Manually replicate native scrolling on whichever real container it
+    // would normally affect, since touch-action: none disabled it here.
+    if (this.#scrollDirection === 'y' && state.vScroller) state.vScroller.scrollTop -= deltaY;
+    if (this.#scrollDirection === 'x' && state.hScroller && state.hScroller !== state.vScroller) state.hScroller.scrollLeft -= deltaX;
+
+    if (!state.scrollLocked) {
+      const totalDistance = Math.hypot(e.clientX - state.startX, e.clientY - state.startY);
+      if (totalDistance > TOUCH_MOVE_TOLERANCE_PX) {
+        // Moved enough to be a deliberate scroll — this gesture can no
+        // longer become a drag, but keep scrolling for the rest of it.
+        state.scrollLocked = true;
+        if (state.longPressTimer) {
+          clearTimeout(state.longPressTimer);
+          state.longPressTimer = null;
+        }
+        this.#element.classList.remove('appointment-block--pressing');
+      }
+    }
+  };
+
+  #handlePendingEnd = (e) => {
+    const state = this.#dragState;
+    if (!state || e.pointerId !== state.pointerId) return;
+    this.#detachPendingListeners();
+    if (state.longPressTimer) clearTimeout(state.longPressTimer);
+    this.#element.classList.remove('appointment-block--pressing');
+    const wasScrollLocked = state.scrollLocked;
+    this.#dragState = null;
+    this.#scrollDirection = null;
+    if (!wasScrollLocked) {
+      this.#onEdit(this.#appointment); // never scrolled, never dragged = a genuine tap
+    }
+  };
+
+  #detachPendingListeners() {
+    document.removeEventListener('pointermove', this.#handlePendingMove);
+    document.removeEventListener('pointerup', this.#handlePendingEnd);
+    document.removeEventListener('pointercancel', this.#handlePendingEnd);
+  }
+
+  /** Touch only: the hold completed without exceeding the movement tolerance — commit to dragging. */
+  #activateDrag() {
+    const state = this.#dragState;
+    if (!state || state.dragActive || state.scrollLocked) return;
+    this.#detachPendingListeners();
+    state.longPressTimer = null;
+    state.dragActive = true;
+    this.#element.classList.remove('appointment-block--pressing');
+
+    try {
+      this.#element.setPointerCapture(state.pointerId);
+    } catch {
+      /* pointer may already be gone if lifted right as the timer fired — #handleActiveEnd handles that */
+    }
+    this.#element.addEventListener('pointermove', this.#handleActiveMove);
+    this.#element.addEventListener('pointerup', this.#handleActiveEnd);
+    this.#element.addEventListener('pointercancel', this.#handleActiveEnd);
+    this.#dragCoordinator.beginDrag({ blockElement: this.#element });
+  }
+
+  // --- Active drag phase — shared by mouse (immediate) and touch (post hold) ---
+
+  #handleActiveMove = (e) => {
     const state = this.#dragState;
     if (!state) return;
 
-    const deltaX = e.clientX - state.startX;
-    const deltaY = e.clientY - state.startY;
-    if (!state.moved && Math.hypot(deltaX, deltaY) > 4) {
-      state.moved = true;
-    }
-    if (!state.moved) return;
-
-    if (!state.ghostStarted) {
+    if (!state.dragActive) {
+      // Mouse-only path: promote to an active drag once past the small threshold.
+      const distance = Math.hypot(e.clientX - state.startX, e.clientY - state.startY);
+      if (distance <= DRAG_THRESHOLD_PX) return;
+      state.dragActive = true;
       this.#dragCoordinator.beginDrag({ blockElement: this.#element });
-      state.ghostStarted = true;
     }
 
+    e.preventDefault();
     state.pending = this.#dragCoordinator.updateDrag({
       clientX: e.clientX,
       clientY: e.clientY,
@@ -179,23 +293,29 @@ export class AppointmentBlock {
     });
   };
 
-  #handlePointerUp = (e) => {
-    this.#element.releasePointerCapture(e.pointerId);
-    this.#element.removeEventListener('pointermove', this.#handlePointerMove);
-    this.#element.removeEventListener('pointerup', this.#handlePointerUp);
-    this.#element.removeEventListener('pointercancel', this.#handlePointerUp);
-
+  #handleActiveEnd = (e) => {
     const state = this.#dragState;
-    this.#dragState = null;
     if (!state) return;
 
-    if (!state.moved) {
+    this.#element.removeEventListener('pointermove', this.#handleActiveMove);
+    this.#element.removeEventListener('pointerup', this.#handleActiveEnd);
+    this.#element.removeEventListener('pointercancel', this.#handleActiveEnd);
+    try {
+      this.#element.releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
+
+    this.#dragState = null;
+
+    if (!state.dragActive) {
+      // Touch: the hold fired but the pointer lifted before any movement was seen — treat as a tap.
       this.#onEdit(this.#appointment);
       return;
     }
 
     if (!state.pending) { // dropped outside any known zone — just restore
-      this.#dragCoordinator.endDrag(this.#element);
+    this.#dragCoordinator.endDrag(this.#element);
       return;
     }
 
