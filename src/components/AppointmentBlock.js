@@ -239,7 +239,7 @@ export class AppointmentBlock {
     this.#dragState = null;
     this.#scrollDirection = null;
     if (!wasScrollLocked) {
-      this.#onEdit(this.#appointment); // never scrolled, never dragged = a genuine tap
+      setTimeout(() => this.#onEdit(this.#appointment), 10); // never scrolled, never dragged = a genuine tap
     }
   };
 
@@ -310,7 +310,7 @@ export class AppointmentBlock {
 
     if (!state.dragActive) {
       // Touch: the hold fired but the pointer lifted before any movement was seen — treat as a tap.
-      this.#onEdit(this.#appointment);
+      setTimeout(() => this.#onEdit(this.#appointment), 10);
       return;
     }
 
