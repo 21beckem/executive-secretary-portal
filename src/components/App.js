@@ -8,7 +8,7 @@ import { AppointmentForm } from './AppointmentForm.js';
 import { Toast } from './Toast.js';
 import { ApiError } from '../api/ApiError.js';
 
-const PIXELS_PER_MINUTE = 1.6; // 96px/hour, 24px per 15-minute slot
+const PIXELS_PER_MINUTE = 2; // 96px/hour, 24px per 15-minute slot
 
 export class App {
   #appointmentRepository;

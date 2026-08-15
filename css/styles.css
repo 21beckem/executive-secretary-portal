@@ -368,7 +368,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   flex-direction: row;
   align-items: baseline;
   gap: 6px;
-  padding: 2px 8px;
+  padding: 6px 8px;
 }
 .appointment-block--compact .appointment-block__type { display: none; }
 

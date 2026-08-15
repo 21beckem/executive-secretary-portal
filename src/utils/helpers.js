@@ -16,7 +16,7 @@ export function escapeHtml(str) {
 
 
 /** Converts a solid color to a background color with a specified transparency. */
-export function colorToTintedWhite(hex, factor=0.88, alpha=0.75) {
+export function colorToTintedWhite(hex, factor=0.65, alpha=0.75) {
   const clean = hex.replace('#', '');
   const t = Math.max(0, Math.min(1, factor));
   const bigint = parseInt(clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean, 16);
