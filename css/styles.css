@@ -181,6 +181,82 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 }
 
 /* ===========================================================
+   Portal shell: persistent header + tab-managed content + tab footer
+   =========================================================== */
+:root {
+  --tab-footer-height: calc(47px + env(safe-area-inset-bottom, 0px));
+}
+
+.portal-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--tab-footer-height);
+  min-height: 0;
+}
+
+.appointments-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.appointments-tab__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.appointments-tab__toolbar .week-navigator {
+  flex: 1;
+  padding: 0;
+  border-bottom: none;
+  background: transparent;
+}
+
+.tab-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  background: var(--color-surface);
+  border-top: 2px solid var(--color-border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-x: scroll;
+  overflow-y: hidden;
+}
+.tab-footer__buttons {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 12px;
+  width: fit-content;
+}
+.tab-footer__button {
+  flex: 0 1 auto;
+  min-width: 88px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  white-space: nowrap;
+}
+.tab-footer__button:hover { background: var(--color-bg); }
+.tab-footer__button--active {
+  color: var(--color-primary);
+  background: rgba(44, 62, 107, 0.08);
+}
+
+/* ===========================================================
    Week navigator
    =========================================================== */
 .week-navigator {
@@ -198,6 +274,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   font-size: 16px;
   letter-spacing: -0.01em;
   min-width: 220px;
+  max-width: 7rem;
 }
 .week-navigator__label:active {
   outline: none;
@@ -672,8 +749,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   .week-navigator__label { min-width: 0; font-size: 14px; }
   .schedule-view {
     padding: 14px 12px 32px;
-    /* room so the fixed Unscheduled bar never covers the last row of the calendar */
-    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+    padding-bottom: 84px;
   }
   .day-columns { gap: 7px; }
   .day-column { flex: 0 0 55vw; }
@@ -685,7 +761,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--tab-footer-height);
     top: auto;
     flex: none;
     width: 100%;
@@ -693,9 +769,10 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     border: 1px solid var(--color-border);
     border-bottom: none;
-    box-shadow: 0 -8px 28px rgba(20, 24, 40, 0.20);
+    box-shadow: 0 0px 12px rgba(20, 24, 40, 0.20);
     z-index: 60;
     max-height: 60vh;
+    transition: max-height var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
   }
 
   .unscheduled-column__header {
@@ -705,7 +782,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
     border-bottom: none;
   }
   .day-column--unscheduled:not(.unscheduled-column--collapsed) {
-    box-shadow: 0 19px 69px 8px #000000b3 !important;
+    box-shadow: 0 16px 31px 9px #000000b3 !important;
   }
   .unscheduled-column--collapsed .unscheduled-column__header {
     padding-bottom: 14px;

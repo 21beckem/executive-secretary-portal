@@ -3,7 +3,7 @@ import { ApiClient } from './api/ApiClient.js';
 import { AppointmentRepository } from './repositories/AppointmentRepository.js';
 import { AppointmentTypeRepository } from './repositories/AppointmentTypeRepository.js';
 import { AvailabilityRepository } from './repositories/AvailabilityRepository.js';
-import { App } from './components/App.js';
+import { PortalApp } from './components/PortalApp.js';
 
 async function bootstrap() {
   const rootElement = document.getElementById('app');
@@ -20,15 +20,16 @@ async function bootstrap() {
   const appointmentTypeRepository = new AppointmentTypeRepository(apiClient);
   const availabilityRepository = new AvailabilityRepository(apiClient);
 
-  const app = new App({
+  const portal = new PortalApp({
+    apiClient,
+    authGate,
     appointmentRepository,
     appointmentTypeRepository,
     availabilityRepository,
-    authGate,
     rootElement,
   });
 
-  await app.init();
+  await portal.init();
 }
 
 bootstrap();
