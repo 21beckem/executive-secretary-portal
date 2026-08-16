@@ -450,6 +450,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 }
 .appointment-block--compact {
   flex-direction: row;
+  user-select: none;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
