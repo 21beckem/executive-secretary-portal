@@ -18,7 +18,7 @@ export class AppointmentsTab extends Tab {
   #authGate;
   #toast;
   #deleteModal;
-  
+
   #toolbar;
   #weekNavigator;
   #scheduleContainer;
@@ -72,6 +72,7 @@ export class AppointmentsTab extends Tab {
         onAppointmentMove: (id, target) => this.#moveAppointment(id, target),
         onAppointmentEdit: (appointment) => this.#openForm({ appointment }),
         onAddUnscheduled: () => this.#openForm({ allowBlankSchedule: true }),
+        onStatusChange: (id, status) => this.#changeStatus(id, status),
       });
       this.#scheduleContainer.appendChild(this.#scheduleView.element);
 
@@ -220,6 +221,16 @@ export class AppointmentsTab extends Tab {
       } else {
         await this.#handleError(err);
       }
+    }
+  }
+
+  /** Status is edited only by tapping the checkbox on the block itself — never via the form. */
+  async #changeStatus(id, status) {
+    try {
+      await this.#appointmentRepository.update(id, { status });
+      await this.#loadWeek();
+    } catch (err) {
+      await this.#handleError(err);
     }
   }
 

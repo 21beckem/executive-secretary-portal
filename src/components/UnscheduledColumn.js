@@ -8,6 +8,7 @@ export class UnscheduledColumn {
   #onAdd;
   #onAppointmentMove;
   #onAppointmentEdit;
+  #onStatusChange;
   #element;
   #list;
   #countBadge;
@@ -21,6 +22,7 @@ export class UnscheduledColumn {
     onAdd,
     onAppointmentMove,
     onAppointmentEdit,
+    onStatusChange,
   }) {
     this.#appointments = appointments;
     this.#appointmentTypesById = appointmentTypesById;
@@ -29,6 +31,7 @@ export class UnscheduledColumn {
     this.#onAdd = onAdd;
     this.#onAppointmentMove = onAppointmentMove;
     this.#onAppointmentEdit = onAppointmentEdit;
+    this.#onStatusChange = onStatusChange;
     this.#element = this.#buildElement();
   }
 
@@ -107,6 +110,7 @@ export class UnscheduledColumn {
         dragCoordinator: this.#dragCoordinator,
         onMove: this.#onAppointmentMove,
         onEdit: this.#onAppointmentEdit,
+        onStatusChange: this.#onStatusChange,
       });
       this.#list.appendChild(block.element);
     }

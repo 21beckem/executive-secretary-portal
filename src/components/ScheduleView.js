@@ -10,6 +10,7 @@ export class ScheduleView {
   #onAppointmentMove;
   #onAppointmentEdit;
   #onAddUnscheduled;
+  #onStatusChange;
   #element;
   #columnsContainer;
 
@@ -21,6 +22,7 @@ export class ScheduleView {
     onAppointmentMove,
     onAppointmentEdit,
     onAddUnscheduled,
+    onStatusChange,
   }) {
     this.#availabilityCalculator = availabilityCalculator;
     this.#dragDropController = dragDropController;
@@ -29,6 +31,7 @@ export class ScheduleView {
     this.#onAppointmentMove = onAppointmentMove;
     this.#onAppointmentEdit = onAppointmentEdit;
     this.#onAddUnscheduled = onAddUnscheduled;
+    this.#onStatusChange = onStatusChange;
     this.#element = this.#buildElement();
   }
 
@@ -78,6 +81,7 @@ export class ScheduleView {
           onSlotClick: this.#onSlotClick,
           onAppointmentMove: this.#onAppointmentMove,
           onAppointmentEdit: this.#onAppointmentEdit,
+          onStatusChange: this.#onStatusChange,
         });
         this.#columnsContainer.appendChild(column.element);
       }
@@ -91,6 +95,7 @@ export class ScheduleView {
       onAdd: this.#onAddUnscheduled,
       onAppointmentMove: this.#onAppointmentMove,
       onAppointmentEdit: this.#onAppointmentEdit,
+      onStatusChange: this.#onStatusChange,
     });
     this.#columnsContainer.appendChild(unscheduledColumn.element);
   }

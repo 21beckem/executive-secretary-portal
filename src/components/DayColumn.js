@@ -17,6 +17,7 @@ export class DayColumn {
   #onSlotClick;
   #onAppointmentMove;
   #onAppointmentEdit;
+  #onStatusChange;
   #element;
   #track;
 
@@ -36,6 +37,7 @@ export class DayColumn {
     onSlotClick,
     onAppointmentMove,
     onAppointmentEdit,
+    onStatusChange,
   }) {
     this.#date = date;
     this.#iso = iso;
@@ -52,6 +54,7 @@ export class DayColumn {
     this.#onSlotClick = onSlotClick;
     this.#onAppointmentMove = onAppointmentMove;
     this.#onAppointmentEdit = onAppointmentEdit;
+    this.#onStatusChange = onStatusChange;
     this.#element = this.#buildElement();
   }
 
@@ -128,6 +131,7 @@ export class DayColumn {
         dragCoordinator: this.#dragCoordinator,
         onMove: this.#onAppointmentMove,
         onEdit: this.#onAppointmentEdit,
+        onStatusChange: this.#onStatusChange,
       });
       this.#track.appendChild(block.element);
     }

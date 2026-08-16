@@ -8,6 +8,14 @@ const DRAG_THRESHOLD_PX = 4;        // mouse: distance before a drag is consider
 const TOUCH_MOVE_TOLERANCE_PX = 8;  // touch: total movement allowed during the hold before it's treated as a scroll
 const LONG_PRESS_MS = 450;          // touch: how long you must hold before dragging begins
 
+const STATUS_CYCLE = ['unset', 'scheduled', 'canceled'];
+const STATUS_GLYPHS = { unset: '', scheduled: '\u2713', canceled: '\u2715' };
+
+function nextStatus(current) {
+  const index = STATUS_CYCLE.indexOf(current);
+  return STATUS_CYCLE[(index + 1) % STATUS_CYCLE.length];
+}
+
 /**
  * Renders one appointment as a card — either absolutely positioned on a
  * day's time grid ('timed' layout) or stacked in the Unscheduled column
@@ -18,18 +26,14 @@ const LONG_PRESS_MS = 450;          // touch: how long you must hold before drag
  *    small threshold.
  *  - Touch: this element has `touch-action: none` (see CSS), which fully
  *    opts it out of the browser's own panning/zooming for any touch that
- *    starts on it. That's necessary because touch-action can't be switched
- *    dynamically mid-gesture in a way browsers honor — the browser decides
- *    at the start of a touch whether it or JS owns the gesture, so a
- *    "scroll normally, then hijack after a long-press" approach based on
- *    touch-action alone is a race the browser wins (it fires `pointercancel`
- *    and takes the gesture for native scrolling the moment real movement
- *    happens). Instead, we own the whole gesture from the start and
- *    manually replicate scrolling ourselves: until the long-press
- *    completes, every pointer movement scrolls the nearest real scrollable
- *    ancestor by the same delta the finger moved, so it still feels like
- *    native scrolling. If the hold completes before the total movement
- *    exceeds TOUCH_MOVE_TOLERANCE_PX, we commit to a drag instead.
+ *    starts on it — touch-action can't be switched dynamically mid-gesture
+ *    in a way browsers honor, so instead we own the whole gesture from the
+ *    start and manually replicate scrolling ourselves until/unless a
+ *    sustained hold turns it into a drag.
+ *
+ * The status checkbox (left of the name) and the directory-link icon
+ * (top-right) both intercept pointerdown before any drag/tap logic runs,
+ * so tapping either never triggers a drag or opens the edit form.
  */
 export class AppointmentBlock {
   #appointment;
@@ -43,7 +47,9 @@ export class AppointmentBlock {
   #dragCoordinator;
   #onMove;
   #onEdit;
+  #onStatusChange;
   #element;
+  #statusButton;
   #scrollDirection = null; // 'x' | 'y' | null, set once a touch gesture is committed to scrolling
   #dragState = null;
 
@@ -59,6 +65,7 @@ export class AppointmentBlock {
     dragCoordinator,
     onMove,
     onEdit,
+    onStatusChange,
   }) {
     this.#appointment = appointment;
     this.#appointmentType = appointmentType;
@@ -71,6 +78,7 @@ export class AppointmentBlock {
     this.#dragCoordinator = dragCoordinator;
     this.#onMove = onMove;
     this.#onEdit = onEdit;
+    this.#onStatusChange = onStatusChange;
     this.#element = this.#buildElement();
     this.#attachListeners();
   }
@@ -105,13 +113,22 @@ export class AppointmentBlock {
   #renderContent(el) {
     const showTime = SHOW_START_TIME && !this.#appointment.isUnscheduled;
     const hasDirectoryLink = Boolean(this.#appointment.directoryLink);
+    const status = this.#appointment.status ?? 'unset';
+
     el.innerHTML = `
       ${showTime ? `<span class="appointment-block__time">${DateUtils.formatTimeDisplay(this.#appointment.startTime)}</span>` : ''}
-      <span class="appointment-block__name">${escapeHtml(this.#appointment.personName)}</span>
+      <div class="appointment-block__name-row">
+        <button type="button" class="appointment-block__status" data-status="${status}" title="Cycle status" aria-label="Cycle appointment status">${STATUS_GLYPHS[status] ?? ''}</button>
+        <span class="appointment-block__name">${escapeHtml(this.#appointment.personName)}</span>
+      </div>
       <span class="appointment-block__type">${escapeHtml(this.#appointmentType?.name ?? '')}</span>
       ${this.#isOutsideAvailability ? '<span class="appointment-block__warning-badge" title="Outside the bishop\u2019s normal availability">!</span>' : ''}
       ${hasDirectoryLink ? '<button type="button" class="appointment-block__directory-link" title="Open in ward directory" aria-label="Open in ward directory">\u{1F464}</button>' : ''}
     `;
+
+    this.#statusButton = el.querySelector('.appointment-block__status');
+    this.#statusButton.addEventListener('click', this.#handleStatusClick);
+
     if (hasDirectoryLink) {
       el.querySelector('.appointment-block__directory-link').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -119,6 +136,15 @@ export class AppointmentBlock {
       });
     }
   }
+
+  #handleStatusClick = (e) => {
+    e.stopPropagation();
+    const next = nextStatus(this.#appointment.status ?? 'unset');
+    // Instant visual feedback — the eventual reload will reconcile with the server's copy.
+    this.#statusButton.dataset.status = next;
+    this.#statusButton.textContent = STATUS_GLYPHS[next] ?? '';
+    this.#onStatusChange(this.#appointment.id, next);
+  };
 
   #positionElement(el) {
     const top = this.#dragDropController.minutesToPixels(this.#appointment.startMinutes - this.#gridStartMinutes);
@@ -153,7 +179,10 @@ export class AppointmentBlock {
 
   #handlePointerDown = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
-    if (e.target.closest('.appointment-block__directory-link')) return; // let the icon's own click fire
+    // Let the status checkbox and the directory-link icon handle their own clicks —
+    // neither should start a drag or an edit-tap.
+    if (e.target.closest('.appointment-block__status')) return;
+    if (e.target.closest('.appointment-block__directory-link')) return;
     const isTouch = e.pointerType === 'touch';
 
     const rect = this.#element.getBoundingClientRect();

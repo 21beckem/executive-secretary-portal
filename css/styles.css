@@ -105,6 +105,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
    Buttons
    =========================================================== */
 .btn {
+  user-select: none;
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -237,6 +238,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   width: fit-content;
 }
 .tab-footer__button {
+  user-select: none;
   flex: 0 1 auto;
   min-width: 88px;
   padding: 8px 16px;
@@ -448,7 +450,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 }
 .appointment-block--compact {
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   padding: 6px 8px;
 }
@@ -482,6 +484,8 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   color: var(--color-ink-soft);
 }
 .appointment-block__name {
+  flex: 1;
+  min-width: 0;
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.2;
@@ -534,6 +538,49 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   top: 20px;
 }
 
+.appointment-block__name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.appointment-block--compact .appointment-block__name-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.appointment-block__status {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid var(--color-ink-soft);
+  background: #fff;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  transition: background-color var(--duration-fast) var(--ease),
+              border-color var(--duration-fast) var(--ease),
+              transform var(--duration-fast) var(--ease);
+}
+.appointment-block__status:hover { transform: scale(1.12); }
+.appointment-block__status:active { transform: scale(0.92); }
+.appointment-block__status[data-status="scheduled"] {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+.appointment-block__status[data-status="canceled"] {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+
 /* ===========================================================
    Unscheduled column (desktop: sticky-right sidebar)
    =========================================================== */
@@ -548,6 +595,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 }
 
 .unscheduled-column__header {
+  user-select: none;
   width: 100%;
   display: flex;
   align-items: center;
