@@ -313,7 +313,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 }
 
 .day-column {
-  flex: 0 0 220px;
+  width: 220px;
   background: var(--color-surface);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
@@ -321,6 +321,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   box-shadow: var(--shadow-xs);
   transition: box-shadow var(--duration-base) var(--ease), border-color var(--duration-base) var(--ease);
   /* animation: fadeSlideUp var(--duration-base) var(--ease) both; */
+  resize: horizontal;
 }
 .day-column--today {
   border-color: var(--color-primary);
@@ -430,7 +431,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   cursor: grab;
   box-shadow: var(--shadow-xs);
   touch-action: none;
-  user-select: none;
+  user-select: none !important;
   transition: box-shadow var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
   /* animation: fadeSlideUp var(--duration-base) var(--ease) both; */
 }
@@ -450,7 +451,6 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 }
 .appointment-block--compact {
   flex-direction: row;
-  user-select: none;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
@@ -483,6 +483,8 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   font-size: 10px;
   font-weight: 700;
   color: var(--color-ink-soft);
+  width: 1.4rem;
+  text-align: right;
 }
 .appointment-block__name {
   flex: 1;
@@ -498,22 +500,6 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 .appointment-block__type {
   font-size: 10.5px;
   color: var(--color-ink-soft);
-}
-.appointment-block__warning-badge {
-  position: absolute;
-  top: 3px;
-  right: 5px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--color-warning);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 3px rgba(20, 24, 40, 0.25);
 }
 .appointment-block__directory-link {
   position: absolute;
@@ -532,11 +518,6 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 .appointment-block__directory-link:hover {
   opacity: 1;
   background: rgba(20, 24, 40, 0.06);
-}
-/* If both the warning badge and the directory-link icon are present,
-   give the icon room below the badge instead of overlapping it. */
-.appointment-block__warning-badge ~ .appointment-block__directory-link {
-  top: 20px;
 }
 
 .appointment-block__name-row {
@@ -586,6 +567,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
    Unscheduled column (desktop: sticky-right sidebar)
    =========================================================== */
 .day-column--unscheduled {
+  resize: none;
   flex: 0 0 200px;
   position: sticky;
   right: 0;
@@ -593,6 +575,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   background: var(--color-surface);
   display: flex;
   flex-direction: column;
+  z-index: 7; /* Just higher than hour labels */
 }
 
 .unscheduled-column__header {

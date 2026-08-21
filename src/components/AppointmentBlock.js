@@ -7,6 +7,7 @@ export const SHOW_START_TIME = true;
 const DRAG_THRESHOLD_PX = 4;        // mouse: distance before a drag is considered to have started
 const TOUCH_MOVE_TOLERANCE_PX = 8;  // touch: total movement allowed during the hold before it's treated as a scroll
 const LONG_PRESS_MS = 450;          // touch: how long you must hold before dragging begins
+const COLUMN_GAP_PX = 4;            // horizontal gap between columns in a multi-column overlap
 
 const STATUS_CYCLE = ['unset', 'scheduled', 'canceled'];
 const STATUS_GLYPHS = { unset: '', scheduled: '\u2713', canceled: '\u2715' };
@@ -38,6 +39,8 @@ function nextStatus(current) {
 export class AppointmentBlock {
   #appointment;
   #appointmentType;
+  #numColumns;
+  #columnIndex;
   #isOutsideAvailability;
   #layout; // 'timed' | 'static'
   #homeKey; // the ISO date this block started in, or 'unscheduled'
@@ -56,6 +59,8 @@ export class AppointmentBlock {
   constructor({
     appointment,
     appointmentType,
+    numColumns = 1,
+    columnIndex = 0,
     isOutsideAvailability = false,
     layout = 'timed',
     homeKey,
@@ -69,6 +74,8 @@ export class AppointmentBlock {
   }) {
     this.#appointment = appointment;
     this.#appointmentType = appointmentType;
+    this.#numColumns = numColumns;
+    this.#columnIndex = columnIndex;
     this.#isOutsideAvailability = isOutsideAvailability;
     this.#layout = layout;
     this.#homeKey = homeKey;
@@ -95,7 +102,6 @@ export class AppointmentBlock {
     const el = document.createElement('div');
     el.className = 'appointment-block';
     if (this.#layout === 'static') el.classList.add('appointment-block--static');
-    if (this.#isOutsideAvailability) el.classList.add('appointment-block--warning');
     if (this.#appointment.durationMinutes <= 15) el.classList.add('appointment-block--compact');
     el.tabIndex = 0;
     this.#applyColor(el);
@@ -111,7 +117,7 @@ export class AppointmentBlock {
   }
 
   #renderContent(el) {
-    const showTime = SHOW_START_TIME && !this.#appointment.isUnscheduled;
+    const showTime = (this.#numColumns === 1) ? SHOW_START_TIME && !this.#appointment.isUnscheduled : false;
     const hasDirectoryLink = Boolean(this.#appointment.directoryLink);
     const status = this.#appointment.status ?? 'unset';
 
@@ -122,7 +128,6 @@ export class AppointmentBlock {
         <span class="appointment-block__name">${escapeHtml(this.#appointment.personName)}</span>
       </div>
       <span class="appointment-block__type">${escapeHtml(this.#appointmentType?.name ?? '')}</span>
-      ${this.#isOutsideAvailability ? '<span class="appointment-block__warning-badge" title="Outside the bishop\u2019s normal availability">!</span>' : ''}
       ${hasDirectoryLink ? '<button type="button" class="appointment-block__directory-link" title="Open in ward directory" aria-label="Open in ward directory">\u{1F464}</button>' : ''}
     `;
 
@@ -149,8 +154,13 @@ export class AppointmentBlock {
   #positionElement(el) {
     const top = this.#dragDropController.minutesToPixels(this.#appointment.startMinutes - this.#gridStartMinutes);
     const height = this.#dragDropController.minutesToPixels(this.#appointment.durationMinutes);
-    el.style.top = `${top}px`;
-    el.style.height = `${Math.max(height - 2, 18)}px`;
+    const widthPerc = Math.round(10000 / this.#numColumns) / 100;
+    const left = widthPerc * this.#columnIndex;
+
+    el.style.width = `calc(${widthPerc}% - ${COLUMN_GAP_PX}px`;
+    el.style.left = `calc(${left}% + 2px)`;
+    el.style.top = `${top + 2}px`;
+    el.style.height = `${Math.max(height - 3, 18)}px`;
   }
 
   update({ appointment, isOutsideAvailability, gridStartMinutes, gridEndMinutes }) {
@@ -158,7 +168,6 @@ export class AppointmentBlock {
     this.#isOutsideAvailability = isOutsideAvailability;
     if (gridStartMinutes != null) this.#gridStartMinutes = gridStartMinutes;
     if (gridEndMinutes != null) this.#gridEndMinutes = gridEndMinutes;
-    this.#element.classList.toggle('appointment-block--warning', isOutsideAvailability);
     this.#element.classList.toggle('appointment-block--compact', appointment.durationMinutes <= 15);
     this.#applyColor(this.#element);
     this.#renderContent(this.#element);
@@ -168,6 +177,9 @@ export class AppointmentBlock {
   #attachListeners() {
     this.#element.addEventListener('pointerdown', this.#handlePointerDown);
     this.#element.addEventListener('keydown', this.#handleKeyDown);
+    this.#element.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+    }, { passive: false });
   }
 
   #handleKeyDown = (e) => {
@@ -175,7 +187,7 @@ export class AppointmentBlock {
       e.preventDefault();
       this.#onEdit(this.#appointment);
     }
-  };
+  }
 
   #handlePointerDown = (e) => {
     if (e.button !== undefined && e.button !== 0) return;

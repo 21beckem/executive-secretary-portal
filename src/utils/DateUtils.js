@@ -56,15 +56,15 @@ export class DateUtils {
     return Math.round(minutes / 15) * 15;
   }
 
-  /** 'HH:MM' -> '7:00 PM' */
+  /** 'HH:MM' -> '7:00' */
   static formatTimeDisplay(timeStr) {
     const minutes = DateUtils.timeToMinutes(timeStr);
     let h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    const period = h >= 12 ? 'PM' : 'AM';
+    const period = ''; // h >= 12 ? ' PM' : ' AM';
     h = h % 12;
     if (h === 0) h = 12;
-    return `${h}:${DateUtils.pad(m)} ${period}`;
+    return `${h}:${DateUtils.pad(m)}${period}`;
   }
 
   /** Date -> 'Sun, Aug 16' */

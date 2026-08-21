@@ -117,10 +117,97 @@ export class DayColumn {
     }
   }
 
+  #getOverlappingChunks() {
+    // make map of overlapping appointments so we can assign them to columns
+    const firstAppointmentTime = this.#appointments.reduce((earliest, a) => {
+      const startMin = DateUtils.timeToMinutes(a.startTime);
+      return Math.min(earliest, startMin);
+    }, Infinity);
+    const lastAppointmentEndTime = this.#appointments.reduce((latest, a) => {
+      const endMin = DateUtils.timeToMinutes(a.startTime) + a.durationMinutes;
+      return Math.max(latest, endMin);
+    }, -Infinity);
+
+    const overlapChunks = [];
+    const idsThatOverlap = [];
+    const overlappingMap = new Map();
+    let lastChunk = null;
+    let lastCurrentlyOverlapping = false;
+    let lastInOverlappingChunk = false;
+    
+    for (let m = firstAppointmentTime; m < lastAppointmentEndTime; m += 15) {
+      const overlapping = this.#appointments.filter((a) => {
+        const startMin = DateUtils.timeToMinutes(a.startTime);
+        const endMin = startMin + a.durationMinutes;
+        return startMin < m + 15 && endMin > m;
+      });
+
+      const overlappingIds = overlapping.map(a => a.id);
+
+      if (lastChunk && overlapping.length > 1 && !overlappingIds.some(id => lastChunk?.appointments?.has(id))) {
+        // in a chunk, but none of the current ids are in this chunk.
+        // so finish this one and start a new one immidiately!
+        lastChunk.endMinute = m;
+        overlapChunks.push(lastChunk);
+        lastChunk = {
+          startMinute: m,
+          endMinute: null,
+          appointments: new Map( overlapping.map(a => [a.id, a]) ),
+          columns: [...overlapping.map(a => a.id)]
+        };
+      }
+      else if (lastChunk === null && overlapping.length > 1) {
+        // wasn't in a chunk, now overlapping. Start new chunk!
+        lastChunk = {
+          startMinute: m,
+          endMinute: null,
+          appointments: new Map( overlapping.map(a => [a.id, a]) ),
+          columns: [...overlapping.map(a => a.id)]
+        };
+      }
+      else if (lastChunk !== null && overlapping.length <= 1) {
+        // was in a chunk, now not overlapping. Finish the chunk.
+        lastChunk.endMinute = m;
+        overlapChunks.push(lastChunk);
+        lastChunk = null;
+      }
+      else if (lastChunk !== null && overlapping.length > 1) {
+        // still in a chunk, add any new appointments to the chunk's map
+        for (const a of overlapping) {
+          lastChunk.appointments.set(a.id, a);
+          if (!lastChunk.columns.includes(a.id)) {
+            lastChunk.columns.push(a.id);
+          }
+        }
+      }
+    }
+    if (lastChunk !== null) {
+      lastChunk.endMinute = lastChunk.endMinute ?? lastAppointmentEndTime;
+      overlapChunks.push(lastChunk);
+    }
+    return {
+      overlapChunks,
+      idsToChunks: new Map(overlapChunks.map(chunk => chunk.columns.map(id => [id, chunk])).flat()),
+    };
+  }
+
   #renderAppointments() {
+    const { idsToChunks } = this.#getOverlappingChunks();
+
     for (const appointment of this.#appointments) {
+      let numColumns = 1;
+      let columnIndex = 0;
+
+      if (idsToChunks.has(appointment.id)) {
+        const chunk = idsToChunks.get(appointment.id);
+        numColumns = chunk.columns.length;
+        columnIndex = chunk.columns.indexOf(appointment.id);
+      }
+
       const block = new AppointmentBlock({
         appointment,
+        numColumns,
+        columnIndex,
         appointmentType: this.#appointmentTypesById.get(appointment.appointmentTypeId),
         isOutsideAvailability: !this.#availabilityCalculator.isWithinAvailability(appointment),
         layout: 'timed',

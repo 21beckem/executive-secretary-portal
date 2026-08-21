@@ -82,6 +82,14 @@ export class AppointmentForm {
       this.#appointment?.durationMinutes ??
       this.#appointmentTypes.find((t) => t.id === defaultTypeId)?.defaultDurationMinutes ??
       30;
+    const durationOptions = (()=>{
+      const ops = [];
+      const maxDuration = Math.max(...this.#appointmentTypes.map(t => t.defaultDurationMinutes));
+      for (let d = 15; d <= maxDuration; d += 15) {
+        ops.push(`<option value="${d}"${d === defaultDuration ? ' selected' : ''}>${d} min</option>`);
+      }
+      return ops.join('');
+    })();
 
     overlay.innerHTML = `
       <div class="modal appointment-form">
@@ -97,7 +105,7 @@ export class AppointmentForm {
           </label>
           <label>
             Duration (minutes)
-            <input autocomplete="off" type="number" name="durationMinutes" min="15" step="15" required value="${defaultDuration}" />
+            <select autocomplete="off" name="durationMinutes" required value="${defaultDuration}">${durationOptions}</select>
           </label>
           <div class="form-row">
             <label>
@@ -132,14 +140,15 @@ export class AppointmentForm {
     const select = overlay.querySelector('select[name="appointmentTypeId"]');
     select.value = String(defaultTypeId);
 
-    const durationInput = overlay.querySelector('input[name="durationMinutes"]');
-    const updateType = () => {
+    const durationInput = overlay.querySelector('select[name="durationMinutes"]');
+    const updateType = (updateDuration=true) => {
       const type = this.#appointmentTypes.find((t) => t.id === Number(select.value));
       if (!type) return;
-      durationInput.value = type.defaultDurationMinutes;
+      if (updateDuration)
+        durationInput.value = type.defaultDurationMinutes;
       select.style.backgroundColor = colorToTintedWhite(type.color, 0.75, 1);
     };
-    updateType(); // set initial background color for the select
+    updateType(false); // set initial background color for the select
     select.addEventListener('change', updateType);
 
     overlay.querySelector('[data-action="cancel"]').addEventListener('click', () => this.#onCancel());
