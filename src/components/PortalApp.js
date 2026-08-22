@@ -2,6 +2,7 @@ import { Toast } from './Toast.js';
 import { TabManager } from './TabManager.js';
 import { AppointmentsTab } from './tabs/AppointmentsTab.js';
 import { PrayerAssignmentsTab } from './tabs/PrayerAssignmentsTab.js';
+import { BriefsTab } from './tabs/BriefsTab.js';
 
 export class PortalApp {
   #rootElement;
@@ -65,6 +66,7 @@ export class PortalApp {
     await Promise.all([
         this.#tabManager.registerTab({ id: 'appointments', label: 'Appointments', TabClass: AppointmentsTab }),
         this.#tabManager.registerTab({ id: 'prayers', label: 'Prayers', TabClass: PrayerAssignmentsTab }),
+        this.#tabManager.registerTab({ id: 'briefs', label: 'Briefs', TabClass: BriefsTab }),
     ]);
 
     await this.#tabManager.start();

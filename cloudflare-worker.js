@@ -18,6 +18,10 @@ const PATCHABLE_FIELDS = {
     'closing_prayer_name',
     'closing_confirmed',
   ],
+  briefTags: [
+    'label',
+    'color',
+  ],
 };
 
 export default {
@@ -73,6 +77,22 @@ async function route(request, env, path, searchParams) {
     return PrayerAssignmentHelpers.createPrayerAssignment(env, await parseJson(request));
   }
 
+  // Briefs Tags
+  if (path === '/briefs/tags' && method === 'GET') {
+    return BriefsTagHelpers.getTags(env);
+  }
+  if (path === '/briefs/tags' && method === 'POST') {
+    return BriefsTagHelpers.createTag(env, await parseJson(request));
+  }
+
+  // Briefs
+  if (path === '/briefs/briefs' && method === 'POST') {
+    return BriefHelpers.createBrief(env, await parseJson(request));
+  }
+  if (path === '/briefs/briefs' && method === 'GET') {
+    return BriefHelpers.queryBriefs(env, searchParams);
+  }
+
   // Appointments
   const appointmentsIdMatch = path.match(/^\/appointments\/appointments\/(\d+)$/);
   if (appointmentsIdMatch && method === 'PATCH') {
@@ -89,6 +109,27 @@ async function route(request, env, path, searchParams) {
   }
   if (prayerAssignmentsIdMatch && method === 'DELETE') {
     return PrayerAssignmentHelpers.deletePrayerAssignment(env, Number(prayerAssignmentsIdMatch[1]));
+  }
+
+  // Briefs Tags
+  const briefTagsIdMatch = path.match(/^\/briefs\/tags\/(\d+)$/);
+  if (briefTagsIdMatch && method === 'PATCH') {
+    return BriefsTagHelpers.updateTag(env, Number(briefTagsIdMatch[1]), await parseJson(request));
+  }
+  if (briefTagsIdMatch && method === 'DELETE') {
+    return BriefsTagHelpers.deleteTag(env, Number(briefTagsIdMatch[1]));
+  }
+
+  // Briefs
+  const briefsIdMatch = path.match(/^\/briefs\/briefs\/(\d+)$/);
+  if (briefsIdMatch && method === 'GET') {
+    return BriefHelpers.getBrief(env, Number(briefsIdMatch[1]));
+  }
+  if (briefsIdMatch && method === 'PATCH') {
+    return BriefHelpers.updateBrief(env, Number(briefsIdMatch[1]), await parseJson(request));
+  }
+  if (briefsIdMatch && method === 'DELETE') {
+    return BriefHelpers.deleteBrief(env, Number(briefsIdMatch[1]));
   }
 
   throw new ApiError(`Unknown route: ${method} ${path}`, 404);
@@ -274,6 +315,296 @@ class PrayerAssignmentHelpers {
   }
 }
 
+class BriefsTagHelpers {
+  static async getTags(env) {
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM brief_tags'
+    ).all();
+    return jsonResponse(results);
+  }
+  
+  static async createTag(env, body) {
+    if (!body.label) throw new ApiError('date is required.', 400);
+  
+    try {
+      const row = await runReturningOne(
+        env,
+        `INSERT INTO brief_tags
+          (label, color)
+        VALUES (?, ?)
+        RETURNING *`,
+        [
+          body.label,
+          body.color ?? null,
+        ]
+      );
+      return jsonResponse(row);
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ApiError('A with that label already exists.', 409);
+      }
+      throw err;
+    }
+  }
+  
+  static async updateTag(env, id, body) {
+    const fields = Object.keys(body).filter((key) => PATCHABLE_FIELDS.briefTags.includes(key));
+    if (fields.length === 0) throw new ApiError('No updatable fields provided.', 400);
+  
+    const setClause = fields.map((field) => `${field} = ?`).join(', ');
+    const values = fields.map((field) => body[field] ?? null);
+  
+    try {
+      const row = await runReturningOne(
+        env,
+        `UPDATE brief_tags SET ${setClause} WHERE id = ? RETURNING *`,
+        [...values, id]
+      );
+      if (!row) throw new ApiError('Tag not found.', 404);
+      return jsonResponse(row);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      if (isUniqueConstraintError(err)) {
+        throw new ApiError('A tag with that label already exists.', 409);
+      }
+      throw err;
+    }
+  }
+  
+  static async deleteTag(env, id) {
+    const result = await env.DB.prepare('DELETE FROM brief_tags WHERE id = ?').bind(id).run();
+    if (result.meta.changes === 0) throw new ApiError('Tag not found.', 404);
+    return jsonResponse({ success: true });
+  }
+}
+
+class BriefHelpers {
+  // ---- internal: recursively walk a brief's blocks, collecting
+  // tag ids, type ids, and run text for indexing ----
+  static _walkBlocks(blocks, acc) {
+    if (!Array.isArray(blocks)) return;
+    for (const block of blocks) {
+      if (Array.isArray(block.tagIds)) {
+        for (const t of block.tagIds) acc.tagIds.add(t);
+      }
+      if (block.type && block.type.typeId != null) {
+        acc.typeIds.add(String(block.type.typeId));
+      }
+      if (block.text && Array.isArray(block.text.runs)) {
+        for (const run of block.text.runs) {
+          if (run.text) acc.texts.push(run.text);
+        }
+      }
+      if (Array.isArray(block.children) && block.children.length) {
+        BriefHelpers._walkBlocks(block.children, acc);
+      }
+    }
+  }
+
+  static _extractIndexData(name, topLevelTagIds, blocks) {
+    const acc = { tagIds: new Set(), typeIds: new Set(), texts: [] };
+    if (Array.isArray(topLevelTagIds)) {
+      for (const t of topLevelTagIds) acc.tagIds.add(t);
+    }
+    BriefHelpers._walkBlocks(blocks, acc);
+    const bodyText = acc.texts.join(' ').trim();
+    const searchText = [name ?? '', bodyText].filter(Boolean).join(' ').trim();
+    return { tagIds: [...acc.tagIds], typeIds: [...acc.typeIds], searchText, bodyText };
+  }
+
+  // ---- internal: fully replace derived index rows for a brief ----
+  static async _syncIndexes(env, briefId, name, tagIds, typeIds, bodyText) {
+    const stmts = [
+      env.DB.prepare('DELETE FROM brief_tag_index WHERE brief_id = ?').bind(briefId),
+      env.DB.prepare('DELETE FROM brief_type_index WHERE brief_id = ?').bind(briefId),
+      env.DB.prepare('DELETE FROM brief_search_index WHERE rowid = ?').bind(briefId),
+    ];
+
+    for (const tagId of tagIds) {
+      stmts.push(
+        env.DB.prepare('INSERT OR IGNORE INTO brief_tag_index (brief_id, tag_id) VALUES (?, ?)').bind(briefId, tagId)
+      );
+    }
+    for (const typeId of typeIds) {
+      stmts.push(
+        env.DB.prepare('INSERT OR IGNORE INTO brief_type_index (brief_id, type_id) VALUES (?, ?)').bind(briefId, typeId)
+      );
+    }
+    stmts.push(
+      env.DB.prepare('INSERT INTO brief_search_index (rowid, name, body_text) VALUES (?, ?, ?)').bind(
+        briefId,
+        name ?? '',
+        bodyText
+      )
+    );
+
+    await env.DB.batch(stmts);
+  }
+
+  static _rowToBrief(row) {
+    const stored = JSON.parse(row.content);
+    return {
+      id: row.id,
+      name: row.name,
+      date: row.date,
+      tagIds: stored.tagIds ?? [],
+      content: stored.content ?? [],
+    };
+  }
+
+  static _escapeLike(str) {
+    return str.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+  }
+
+  static _toFtsQuery(q) {
+    // AND'd prefix terms, e.g. "budget rev" -> budget* AND rev*
+    return q
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((term) => `${term.replace(/"/g, '')}*`)
+      .join(' AND ');
+  }
+
+  static async createBrief(env, body) {
+    requireFields(body, ['date', 'content']);
+
+    const now = new Date().toISOString();
+    const tagIds = Array.isArray(body.tagIds) ? body.tagIds : [];
+    const blocks = Array.isArray(body.content) ? body.content : [];
+
+    const { tagIds: flatTagIds, typeIds, searchText, bodyText } = BriefHelpers._extractIndexData(
+      body.name,
+      tagIds,
+      blocks
+    );
+    const storedContent = JSON.stringify({ tagIds, content: blocks });
+
+    const row = await runReturningOne(
+      env,
+      `INSERT INTO briefs (name, date, content, search_text, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+      [body.name ?? null, body.date, storedContent, searchText, now, now]
+    );
+
+    await BriefHelpers._syncIndexes(env, row.id, body.name ?? null, flatTagIds, typeIds, bodyText);
+
+    return jsonResponse(BriefHelpers._rowToBrief(row), 201);
+  }
+
+  static async updateBrief(env, id, body) {
+    const existing = await env.DB.prepare('SELECT * FROM briefs WHERE id = ?').bind(id).first();
+    if (!existing) throw new ApiError('Brief not found.', 404);
+
+    const existingParsed = JSON.parse(existing.content);
+
+    const name = 'name' in body ? body.name : existing.name;
+    const date = 'date' in body ? body.date : existing.date;
+    const tagIds = 'tagIds' in body
+      ? (Array.isArray(body.tagIds) ? body.tagIds : [])
+      : (existingParsed.tagIds ?? []);
+    const blocks = 'content' in body
+      ? (Array.isArray(body.content) ? body.content : [])
+      : (existingParsed.content ?? []);
+
+    const { tagIds: flatTagIds, typeIds, searchText, bodyText } = BriefHelpers._extractIndexData(
+      name,
+      tagIds,
+      blocks
+    );
+    const storedContent = JSON.stringify({ tagIds, content: blocks });
+
+    const row = await runReturningOne(
+      env,
+      `UPDATE briefs SET name = ?, date = ?, content = ?, search_text = ?, updated_at = ? WHERE id = ? RETURNING *`,
+      [name ?? null, date, storedContent, searchText, new Date().toISOString(), id]
+    );
+
+    await BriefHelpers._syncIndexes(env, id, name ?? null, flatTagIds, typeIds, bodyText);
+
+    return jsonResponse(BriefHelpers._rowToBrief(row));
+  }
+
+  static async deleteBrief(env, id) {
+    // brief_tag_index / brief_type_index cascade via FK.
+    // FTS5 has no FK support, so clean it up explicitly in the same batch.
+    const results = await env.DB.batch([
+      env.DB.prepare('DELETE FROM brief_search_index WHERE rowid = ?').bind(id),
+      env.DB.prepare('DELETE FROM briefs WHERE id = ?').bind(id),
+    ]);
+    if (results[1].meta.changes === 0) throw new ApiError('Brief not found.', 404);
+    return new Response(null, { status: 204 });
+  }
+
+  static async getBrief(env, id) {
+    const row = await env.DB.prepare('SELECT * FROM briefs WHERE id = ?').bind(id).first();
+    if (!row) throw new ApiError('Brief not found.', 404);
+    return jsonResponse(BriefHelpers._rowToBrief(row));
+  }
+
+  static async queryBriefs(env, searchParams) {
+    const q = searchParams.get('q');
+    const tagsParam = searchParams.get('tags');
+    const typesParam = searchParams.get('types');
+    const pageIndex = Math.max(0, parseInt(searchParams.get('pageIndex') ?? '0', 10) || 0);
+    const pageLength = Math.max(1, parseInt(searchParams.get('pageLength') ?? '20', 10) || 20);
+    const sortDirection = searchParams.get('sortDirection') === 'asc' ? 'ASC' : 'DESC';
+    const searchMode = searchParams.get('search-mode') === 'exact' ? 'exact' : 'like';
+
+    const tagIds = tagsParam ? tagsParam.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    const typeIds = typesParam ? typesParam.split(',').map((s) => s.trim()).filter(Boolean) : [];
+
+    const conditions = [];
+    const bindings = [];
+
+    if (q) {
+      if (searchMode === 'exact') {
+        conditions.push('b.id IN (SELECT rowid FROM brief_search_index WHERE brief_search_index MATCH ?)');
+        bindings.push(BriefHelpers._toFtsQuery(q));
+      } else {
+        conditions.push(`b.search_text LIKE ? ESCAPE '\\'`);
+        bindings.push(`%${BriefHelpers._escapeLike(q)}%`);
+      }
+    }
+
+    // OR semantics: a brief matches if it has ANY of the given tag/type ids.
+    // To require ALL of them instead, swap this block for a
+    // GROUP BY brief_id HAVING COUNT(DISTINCT tag_id) = ? pattern.
+    if (tagIds.length) {
+      const placeholders = tagIds.map(() => '?').join(', ');
+      conditions.push(`b.id IN (SELECT brief_id FROM brief_tag_index WHERE tag_id IN (${placeholders}))`);
+      bindings.push(...tagIds);
+    }
+
+    if (typeIds.length) {
+      const placeholders = typeIds.map(() => '?').join(', ');
+      conditions.push(`b.id IN (SELECT brief_id FROM brief_type_index WHERE type_id IN (${placeholders}))`);
+      bindings.push(...typeIds);
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countRow = await env.DB.prepare(`SELECT COUNT(*) as total FROM briefs b ${whereClause}`)
+      .bind(...bindings)
+      .first();
+
+    const { results } = await env.DB.prepare(
+      `SELECT b.* FROM briefs b ${whereClause}
+       ORDER BY b.date ${sortDirection}, b.id ${sortDirection}
+       LIMIT ? OFFSET ?`
+    )
+      .bind(...bindings, pageLength, pageIndex * pageLength)
+      .all();
+
+    return jsonResponse({
+      results: results.map((row) => BriefHelpers._rowToBrief(row)),
+      pageIndex,
+      pageLength,
+      total: countRow?.total ?? 0,
+    });
+  }
+}
 
 
 /* ---------------------------------------------------------------------- *
