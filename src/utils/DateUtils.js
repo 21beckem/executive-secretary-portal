@@ -18,6 +18,12 @@ export class DateUtils {
     const [year, month, day] = isoString.split('-').map(Number);
     return new Date(year, month - 1, day);
   }
+  
+  static parseIsoDateTime(dateStr, timeStr) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return new Date(year, month - 1, day, hours, minutes);
+  }
 
   static addDays(date, days) {
     const result = new Date(date);
@@ -69,8 +75,8 @@ export class DateUtils {
 
   /** Date -> 'Sun, Aug 16' */
   static formatDateHeading(date) {
-    const weekday = date.toLocaleDateString(undefined, { weekday: 'short' });
-    const month = date.toLocaleDateString(undefined, { month: 'short' });
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
     return `${weekday}, ${month} ${date.getDate()}`;
   }
 
@@ -78,8 +84,8 @@ export class DateUtils {
   static formatWeekRange(weekStart) {
     const weekEnd = DateUtils.addDays(weekStart, 6);
     const sameMonth = weekStart.getMonth() === weekEnd.getMonth();
-    const startMonth = weekStart.toLocaleDateString(undefined, { month: 'short' });
-    const endMonth = weekEnd.toLocaleDateString(undefined, { month: 'short' });
+    const startMonth = weekStart.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'short' });
     if (sameMonth) {
       return `${startMonth} ${weekStart.getDate()}\u2013${weekEnd.getDate()}, ${weekEnd.getFullYear()}`;
     }
@@ -93,4 +99,42 @@ export class DateUtils {
       a.getDate() === b.getDate()
     );
   }
+
+  static formatRelativeLabel(referenceDate, today=new Date(), includeTimeOfDay=true) {
+    if (DateUtils.isSameDate(referenceDate, today)) {
+      if (!includeTimeOfDay) return 'today';
+      if (referenceDate.getHours() < 10) {
+        return 'this morning';
+      } else if (referenceDate.getHours() < 18) {
+        return 'this afternoon';
+      } else {
+        return 'this evening';
+      }
+    }
+    const timeOfDayRef = (()=>{
+      if (!includeTimeOfDay) return '';
+      if (referenceDate.getHours() < 10) {
+        return ' morning';
+      } else if (referenceDate.getHours() < 18) {
+        return '';
+      } else {
+        return ' evening';
+      }
+    })();
+    const nextRef = isBeforeNextSunday(referenceDate, today) ? 'this' : 'next';
+    const dayOfWeek = referenceDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+    return `${nextRef} ${dayOfWeek}${timeOfDayRef}`;
+  }
+}
+window.DateUtils = DateUtils; // for debugging in console
+
+
+function isBeforeNextSunday(targetDate, today = new Date()) {
+  const nextSunday = new Date(today.getTime());
+  const daysUntilSunday = 7 - today.getDay();
+  nextSunday.setDate(today.getDate() + daysUntilSunday);
+  nextSunday.setHours(0, 0, 0, 0);
+
+  return targetDate < nextSunday;
 }

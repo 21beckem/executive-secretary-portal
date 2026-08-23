@@ -73,6 +73,7 @@ export class AppointmentsTab extends Tab {
         onAppointmentEdit: (appointment) => this.#openForm({ appointment }),
         onAddUnscheduled: () => this.#openForm({ allowBlankSchedule: true }),
         onStatusChange: (id, status) => this.#changeStatus(id, status),
+        onShowToast: (message, type) => this.#toast.show(message, { type }),
       });
       this.#scheduleContainer.appendChild(this.#scheduleView.element);
 

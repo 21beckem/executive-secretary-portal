@@ -1,4 +1,5 @@
 import { DateUtils } from '../utils/DateUtils.js';
+import { copyToClipboard } from '../utils/helpers.js';
 import { AppointmentBlock } from './AppointmentBlock.js';
 
 export class DayColumn {
@@ -20,6 +21,7 @@ export class DayColumn {
   #onStatusChange;
   #element;
   #track;
+  #onShowToast;
 
   constructor({
     date,
@@ -38,6 +40,7 @@ export class DayColumn {
     onAppointmentMove,
     onAppointmentEdit,
     onStatusChange,
+    onShowToast,
   }) {
     this.#date = date;
     this.#iso = iso;
@@ -55,6 +58,7 @@ export class DayColumn {
     this.#onAppointmentMove = onAppointmentMove;
     this.#onAppointmentEdit = onAppointmentEdit;
     this.#onStatusChange = onStatusChange;
+    this.#onShowToast = onShowToast;
     this.#element = this.#buildElement();
   }
 
@@ -78,7 +82,27 @@ export class DayColumn {
     header.innerHTML = `
       <div class="day-column__heading">${DateUtils.formatDateHeading(this.#date)}</div>
       ${!this.#isRegularDay ? '<div class="day-column__badge">Not a usual day</div>' : ''}
+      <button class="day-column__export-button" type="button" aria-label="Export" title="Export">➜]</button>
     `;
+    header.querySelector('.day-column__export-button').addEventListener('click', () => {
+      // format appointments into a text message and copy to clipboard
+      const appointmentsText = this.#appointments.map(a => {
+        const startTime = DateUtils.formatTimeDisplay(a.startTime);
+        const name = a.personName ?? '';
+        const typeName = this.#appointmentTypesById.get(a.appointmentTypeId)?.name ?? 'Other';
+        return `${startTime}: ${name}${typeName.toLowerCase() === 'other' ? '' : ` (${typeName})`}`;
+      }).join('\n');
+
+      const relativeLabel = DateUtils.formatRelativeLabel( this.#date, new Date(), false );
+      const fullText = `Hi Bishop, here are your appointments for ${relativeLabel}:\n${appointmentsText}`;
+
+      copyToClipboard(fullText).then(() => {
+        this.#onShowToast(`Copied ${this.#appointments.length} appointments to clipboard.`, 'success');
+      }).catch((err) => {
+        console.error('Failed to copy appointments to clipboard:', err);
+        this.#onShowToast('Failed to copy appointments to clipboard.', 'error');
+      });
+    });
     col.appendChild(header);
 
     const totalMinutes = this.#gridEndMinutes - this.#gridStartMinutes;

@@ -336,6 +336,7 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
 }
 
 .day-column__header {
+  position: relative;
   height: 44px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--color-border);
@@ -348,6 +349,24 @@ h1, h2 { font-family: var(--font-display); margin: 0; }
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 14px;
+}
+.day-column__export-button {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 4px;
+  opacity: 0.75;
+  transition: opacity var(--duration-fast) var(--ease), background-color var(--duration-fast) var(--ease);
+}
+.day-column__export-button:hover {
+  opacity: 1;
+  background: rgba(20, 24, 40, 0.06);
 }
 .day-column__badge {
   display: inline-block;

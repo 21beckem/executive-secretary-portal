@@ -195,7 +195,7 @@ class AppointmentHelpers {
         body.duration_minutes,
         body.appointment_date ?? null,
         body.start_time ?? null,
-        body.status ?? 'scheduled',
+        body.status ?? 'unset',
         body.notes ?? null,
         body.directory_link ?? null,
         createdBy,

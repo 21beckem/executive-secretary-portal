@@ -57,3 +57,30 @@ export function findScrollableAncestor(el, axis) {
   }
   return document.scrollingElement || document.documentElement;
 }
+
+export async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.top = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error('Fallback: Unable to copy to clipboard', err);
+      }
+      document.body.removeChild(textarea);
+    }
+    return true;
+  } catch (err) {
+    console.error('Error copying to clipboard', err);
+    return false;
+  }
+}
+  
