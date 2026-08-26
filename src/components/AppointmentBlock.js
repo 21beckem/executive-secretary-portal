@@ -133,6 +133,7 @@ export class AppointmentBlock {
 
     this.#statusButton = el.querySelector('.appointment-block__status');
     this.#statusButton.addEventListener('click', this.#handleStatusClick);
+    this.#statusButton.addEventListener('touchend', this.#handleStatusClick); // mobile
 
     if (hasDirectoryLink) {
       el.querySelector('.appointment-block__directory-link').addEventListener('click', (e) => {
