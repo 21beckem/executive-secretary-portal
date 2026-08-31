@@ -1,7 +1,7 @@
 import { Tab } from './Tab.js';
 import { BriefsCollection, Query, Tag, TypeRegistry, TagRegistry, PersistenceAdapter } from 'https://21beckem.github.io/becker-briefs/BriefsCollection.js';
 // import { BriefsCollection, Query, Tag, TypeRegistry, TagRegistry, PersistenceAdapter } from 'http://localhost:5501/BriefsCollection.js';
-// import { TodoType } from './TodoType.js';
+import { TodoType } from './brief-types/Todo.js';
 // import { ScheduleType } from './ScheduleType.js';
 
 // import { ApiError } from '../../api/ApiError.js';
@@ -24,7 +24,7 @@ export class BriefsTab extends Tab {
             padding-top: 0.2rem;
         `;
         this.#context = context;
-        this.#typeRegistry = TypeRegistry.fromArray([]);
+        this.#typeRegistry = TypeRegistry.fromArray([TodoType]);
 
         this.#persistenceAdapter = PersistenceAdapter.fromObject({
             onSave: (...args) => this.#onSave(...args),

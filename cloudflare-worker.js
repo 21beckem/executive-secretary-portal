@@ -39,7 +39,7 @@ export default {
       // Strip a leading /api if your route includes one; harmless if not.
       const path = url.pathname.replace(/^\/api/, '') || '/';
 
-      requireAuth(request, env);
+      await requireAuth(request, env);
 
       const response = await route(request, env, path, url.searchParams);
       return withCors(response, origin);
@@ -51,6 +51,14 @@ export default {
 
 async function route(request, env, path, searchParams) {
   const { method } = request;
+
+  // Persons
+  if (path === '/persons/data' && method === 'POST') {
+    return PersonHelpers.setDb(env, await parseJson(request));
+  }
+  if (path === '/persons/data' && method === 'GET') {
+    return PersonHelpers.get(env);
+  }
 
   // Appointments
   if (path === '/appointments/appointment-types' && method === 'GET') {
@@ -138,6 +146,52 @@ async function route(request, env, path, searchParams) {
 /* ---------------------------------------------------------------------- *
  * Handlers
  * ---------------------------------------------------------------------- */
+
+class PersonHelpers {
+  static async _getCurrent(env) {
+    const { results } = await env.DB.prepare(
+      'SELECT data FROM persons WHERE rowid = 1'
+    ).all();
+    try {
+      return JSON.parse(results[0].data);
+    } catch(err) {
+      return errorResponse();
+    }
+  }
+  static async setDb(env, request) {
+    if (!Array.isArray(request))
+      return errorResponse(new Error('body must be an Array.'));
+
+    if (request.some(r => typeof r.uuid !== 'string' || r.uuid.trim() === ''))
+      return errorResponse(new Error('body must be an Array of persons with a valid uuid.'));
+
+    const current = await PersonHelpers._getCurrent(env);
+    if (current.error) return current;
+    
+    // make sure we don't lose anyone in this update!
+    const newUuids = request.map(r => r.uuid);
+    const newData = [
+      ...current.filter(p => !newUuids.includes(p.uuid)),
+      ...request
+    ];
+
+    await runReturningOne(
+      env,
+      `UPDATE persons SET
+         (data) = (?)
+       RETURNING *`,
+      [
+        JSON.stringify(newData),
+      ]
+    );
+    return jsonResponse({ success: true }, 201);
+  }
+  static async get(env) {
+    const res = await PersonHelpers._getCurrent(env);
+    if (res.eror) return res;
+    return jsonResponse(res);
+  }
+}
 
 class AppointmentHelpers {
   static async listAppointmentTypes(env) {
@@ -622,15 +676,22 @@ function isUniqueConstraintError(err) {
   return String(err?.message ?? '').includes('UNIQUE');
 }
 
-function requireAuth(request, env) {
+async function requireAuth(request, env) {
   if (!env.APP_PASSWORD) {
     // Fail closed, not open, if the secret was never set.
     throw new ApiError('Server is not configured with an APP_PASSWORD.', 500);
   }
   const provided = request.headers.get('X-App-Password');
-  if (provided !== env.APP_PASSWORD) {
-    throw new ApiError('Incorrect password.', 401);
+  console.log(provided, env.APP_PASSWORD);
+  if (provided === env.APP_PASSWORD) return; // good
+
+  const clientIP = request.headers.get("CF-Connecting-IP") || "unknown";
+  const failKey = `fail_${clientIP}`;
+  const { success } = await env.RATE_LIMITER.limit({ key: failKey });
+  if (!success) {
+    throw new ApiError(`Rate limit exceeded.`, 429);
   }
+  throw new ApiError('Incorrect password.', 401);
 }
 
 function requireFields(body, fieldNames) {
