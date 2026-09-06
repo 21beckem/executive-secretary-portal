@@ -128,19 +128,12 @@ export class AppointmentBlock {
         <span class="appointment-block__name">${escapeHtml(this.#appointment.personName)}</span>
       </div>
       <span class="appointment-block__type">${escapeHtml(this.#appointmentType?.name ?? '')}</span>
-      ${hasDirectoryLink ? '<button type="button" class="appointment-block__directory-link" title="Open in ward directory" aria-label="Open in ward directory">\u{1F464}</button>' : ''}
+      ${hasDirectoryLink ? `<a href="${this.#appointment.directoryLink}" target="_blank" rel="noopener" type="button" class="appointment-block__directory-link" title="Open in ward directory" aria-label="Open in ward directory">\u{1F464}</a>` : ''}
     `;
 
     this.#statusButton = el.querySelector('.appointment-block__status');
     this.#statusButton.addEventListener('click', this.#handleStatusClick);
     this.#statusButton.addEventListener('touchend', this.#handleStatusClick); // mobile
-
-    if (hasDirectoryLink) {
-      el.querySelector('.appointment-block__directory-link').addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.open(this.#appointment.directoryLink, '_blank', 'noopener');
-      });
-    }
   }
 
   #handleStatusClick = (e) => {
